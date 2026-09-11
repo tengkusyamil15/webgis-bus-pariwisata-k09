@@ -260,15 +260,13 @@
           </button>
         </div>
 
-        <!-- KARTU 5: KLAUSUL KETERBATASAN DATA (DISCLAIMER AKADEMIK) -->
-        <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 text-[11px] text-slate-400 leading-relaxed">
-          <div class="font-bold text-slate-300 flex items-center gap-1 mb-1">
-            <span>⚠️</span> Klausul Keterbatasan Data:
-          </div>
-          <p>
-            Data telematika merupakan data simulasi terkalibrasi untuk keperluan tugas WebGIS. Belum memperhitungkan variasi elevasi 3D (kontur tanjakan/turunan) jalan tol dan fluktuasi bobot penumpang secara dinamis.
-          </p>
-        </div>
+        <!-- Bagian Keterbatasan Data di Sidebar index.html -->
+        <section class="bg-slate-950/80 border border-slate-800/80 p-3 rounded-xl text-[11px] text-slate-400 space-y-1">
+            <span class="font-bold text-slate-300 block">📌 Keterbatasan & Arsitektur Sistem:</span>
+            <p class="leading-relaxed italic">
+                Dibangun dengan arsitektur <b>Decoupled Leaflet.js + Python Preprocessing</b>. Data merupakan simulasi telematika tanpa sensor fisik OBD-II mesin, elevasi 3D topografi tol, dan variasi beban dinamis penumpang.
+            </p>
+        </section>
 
       </div>
     </aside>
