@@ -21,7 +21,7 @@ Aplikasi ini mengintegrasikan pemrosesan data geospasial berbasis Python (*data 
 4. [Fitur-Fitur Antarmuka WebGIS](#-fitur-fitur-antarmuka-webgis)
 5. [Struktur Berkas Repositori](#-struktur-berkas-repositori)
 6. [Panduan Instalasi & Menjalankan Aplikasi](#-panduan-instalasi--menjalankan-aplikasi)
-7. [Klausul Keterbatasan Data (Disclaimer)](#-klausul-keterbatasan-data-disclaimer)
+7. [Tumpukan Teknologi & Rincian Implementasi Teknis](#️-tumpukan-teknologi--rincian-implementasi-teknis-tech-stack)
 
 ---
 
@@ -229,14 +229,28 @@ Efisiensi Riil      : 3.34 km/Liter
 
 ---
 
-## ⚠️ Klausul Keterbatasan Data (Disclaimer)
+## 🛠️ Tumpukan Teknologi & Rincian Implementasi Teknis (Tech Stack)
 
-Untuk keperluan akademik dan pertanggungjawaban ilmiah tugas WebGIS, berikut adalah klausul keterbatasan analisis (*limitations*):
+Proyek WebGIS ini dibangun menggunakan kombinasi pustaka geospasial modern, bahasa pemrograman web standar, serta *pipeline* pengolahan data geospasial yang ringan dan efisien:
 
-1. **Sifat Data Simulasi**: Dataset GPS yang digunakan merupakan data simulasi telematika terkalibrasi (*calibrated simulated telemetry*), bukan hasil pencatatan alat On-Board Diagnostics (OBD-II) fisik langsung pada mesin bus di lapangan.
-2. **Asumsi Kontur & Topografi**: Perhitungan efisiensi belum memperhitungkan elevasi 3D (gradien tanjakan dan turunan) di sepanjang Tol Tangerang – Merak secara mikro.
-3. **Variasi Beban Penumpang**: Konsumsi bahan bakar mengasumsikan beban muatan bus statis (faktor muat $\approx 75\%$ kapasitas tempat duduk) dan belum memperhitungkan dinamika naik-turunnya penumpang atau variasi bobot bagasi di bagasi bawah.
-4. **Kondisi Cuaca & Hambatan Aerodinamis**: Model mengasumsikan kecepatan angin normal dan kerja kompresor pendingin udara (AC) berada pada daya konstan standar siang/pagi hari.
+### 1. Bahasa Pemrograman & Pustaka Inti
+* **HTML5 (HyperText Markup Language)**: Digunakan sebagai fondasi semantik untuk menstrukturkan tata letak antarmuka *split-screen*, elemen kontainer peta basemap, kontrol form dropdown filter, serta template modal struk termal.
+* **JavaScript (ECMAScript 6+)**: Mengendalikan logika interaktif peramban, manipulasi DOM dinamis, kalkulasi metrik secara *client-side*, pengambilan berkas asinkron via `Fetch API`, serta integrasi *event listener* pada kontrol sakelar dan modal.
+* **Python 3.13**: Digunakan untuk tahap *data engineering* dan *offline geoprocessing* pada berkas `dataset.py`, mencakup sanitasi karakter escape, pembersihan anomali string, deduplikasi transmisi koordinat, kalkulasi metrik kumulatif, serta pemodelan konsumsi bahan bakar.
+* **Pandas Library**: Pustaka analisis data berbasis Python untuk manipulasi data tabular, agregasi metrik numerik, transformasi koordinat spasial, serta ekspor struktur data ke format JSON.
+
+### 2. Pustaka Geospasial & Pemetaan
+* **Leaflet.js v1.9.4**: Pustaka open-source utama untuk rendering peta interaktif berbasis WebGL/Canvas di peramban, memuat lapisan garis trayek GeoJSON (`L.geoJSON`), marker terminal awal-akhir, serta manajemen kelompok titik waypoints (`L.layerGroup` & `L.circleMarker`).
+* **OpenStreetMap (OSM) Tile Layer**: Penyedia peta dasar (*basemap*) standar global yang dirender secara ubin (*slippy tiles*) menggunakan proyeksi koordinat Spherical Mercator (EPSG:3857).
+* **Format Data Spasial GeoJSON (RFC 7946)**: Standar format berbasis JSON untuk merepresentasikan geometri fitur geospasial rute (`LineString`) dan sebaran lokasi titik awal-akhir (`Point`) dengan datum spasial WGS 84 (EPSG:4326).
+
+### 3. Kerangka Desain & Antarmuka Pengguna (UI/UX)
+* **Tailwind CSS v3**: Kerangka kerja CSS berbasis *utility-first* melalui CDN untuk merancang antarmuka bertema gelap (*dark mode/slate theme*), tata letak flexbox responsif, sistem grid metrik telematika, serta efek visual backdrop blur.
+* **CSS3 Custom Media Print**: Kustomisasi gaya pencetakan dokumen via media query `@media print` untuk menghasilkan output struk cetak bon BBM fisik yang bersih dan proporsional tanpa elemen antarmuka yang mengganggu.
+
+### 4. Arsitektur Pertukaran Data & Hosting
+* **JSON (JavaScript Object Notation)**: Format serialisasi data terstruktur yang memuat ringkasan audit finansial telematika armada serta 503 titik waypoints hasil ekstraksi.
+* **GitHub Pages**: Platform hosting berkas web statis berbasis serverless CDN global dengan protokol keamanan HTTPS/SSL otomatis.
 
 ---
 
