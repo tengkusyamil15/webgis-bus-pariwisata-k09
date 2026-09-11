@@ -240,8 +240,3 @@ Untuk keperluan akademik dan pertanggungjawaban ilmiah tugas WebGIS, berikut ada
 
 ---
 
-## 👨‍💻 Kontributor & Lisensi
-- **Penyusun**: Mahasiswa Laboratorium MBC Lab
-- **Tugas**: WebGIS Telematika Transportasi Publik (Week 5)
-- **Lisensi**: Proyek ini dilisensikan di bawah [MIT License](LICENSE).
-
