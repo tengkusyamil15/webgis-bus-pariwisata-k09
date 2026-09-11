@@ -1,0 +1,19 @@
+{
+  "kode_kendaraan": "K-09",
+  "kendaraan": "Bus pariwisata",
+  "trayek": "Cilegon – Jakarta",
+  "jenis_bbm": "Dexlite",
+  "harga_per_liter": 13000,
+  "efisiensi_acuan": 3.8,
+  "jumlah_hari": 1,
+  "jumlah_trip": 1,
+  "total_km": 126.7,
+  "total_liter": 38.0,
+  "total_biaya": 493830,
+  "liter_idle": 1.2,
+  "liter_boros": 4.6,
+  "biaya_boros": 60360,
+  "catatan": "Data simulasi, bukan rekaman kendaraan sungguhan.",
+  "siang_trip": 1,
+  "siang_km_per_liter": 3.34
+}

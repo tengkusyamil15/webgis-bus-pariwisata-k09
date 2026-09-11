@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TourBus Telematics - WebGIS Bus Pariwisata K-09 (Split-Screen)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    /* Custom Scrollbar for Sidebar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .receipt-font { font-family: 'Courier New', Courier, monospace; }
+    /* Leaflet popup customization */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+      padding: 2px;
+      background: #ffffff;
+    }
+    .leaflet-popup-content {
+      margin: 10px 12px;
+      line-height: 1.4;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #receiptCard, #receiptCard * { visibility: visible; }
+      #receiptCard {
+        position: absolute;
+        left: 50%;
+        top: 20px;
+        transform: translateX(-50%);
+        box-shadow: none;
+        border: 1px solid #000;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden select-none">
+
+  <!-- ======================================================================= -->
+  <!-- 1. HEADER / TOP BAR RINGKAS -->
+  <!-- ======================================================================= -->
+  <header class="h-14 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 flex items-center justify-between z-20 shrink-0">
+    <!-- Identitas Sistem -->
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center font-black text-white text-lg shadow-md shadow-indigo-500/20">
+        🚌
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm md:text-base font-bold text-white tracking-tight">TourBus Telematics</h1>
+          <span class="text-[11px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700/60">K-09</span>
+          <span class="hidden sm:inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-700/50">Full-Trip</span>
+        </div>
+        <p class="text-[11px] text-slate-400 hidden sm:block">Trayek: <span class="text-slate-200 font-medium">Cilegon – Jakarta</span> (05:20 – 09:31 WIB) | Big Bus Pariwisata</p>
+      </div>
+    </div>
+
+    <!-- Quick Actions Header -->
+    <div class="flex items-center gap-2">
+      <!-- Tombol Pusatkan Rute -->
+      <button onclick="fitRouteBounds()" title="Pusatkan Tampilan Peta ke Seluruh Rute" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+        <span>🎯</span>
+        <span class="hidden md:inline">Pusatkan Rute</span>
+      </button>
+
+      <!-- Tombol Buka Struk Bon BBM Modal -->
+      <button onclick="toggleReceipt()" title="Buka Struk Rekapitulasi Bahan Bakar" class="bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-lg shadow-md shadow-amber-500/20 flex items-center gap-1.5 transition transform active:scale-95">
+        <span>🧾</span>
+        <span>Bon BBM</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ======================================================================= -->
+  <!-- 2. SPLIT-SCREEN MAIN CONTAINER -->
+  <!-- ======================================================================= -->
+  <div class="flex flex-1 overflow-hidden relative">
+
+    <!-- ===================================================================== -->
+    <!-- SIDEBAR PANEL DATA (KIRI) - LEBAR TETAP & SCROLL MANDIRI -->
+    <!-- ===================================================================== -->
+    <aside class="w-[370px] min-w-[340px] max-w-[400px] h-full bg-slate-900 border-r border-slate-800 flex flex-col z-10 custom-scrollbar overflow-y-auto shrink-0">
+      <div class="p-4 space-y-4">
+
+        <!-- KARTU 1: KONTROL LAYER VISUAL (INTERAKTIF AKTIF/NONAKTIF) -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 shadow-sm">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+            <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🗺️</span> Kontrol Layer Visual
+            </h2>
+            <span class="text-[10px] text-slate-500">Leaflet Layers</span>
+          </div>
+
+          <div class="space-y-2.5 text-xs">
+            <!-- Toggle Garis Rute -->
+            <label class="flex items-center justify-between p-2 rounded-lg bg-slate-900 hover:bg-slate-800/80 cursor-pointer transition border border-slate-800/80">
+              <div class="flex items-center gap-2.5">
+                <span class="w-3.5 h-1 bg-indigo-500 rounded-full"></span>
+                <div>
+                  <div class="font-semibold text-slate-200">Garis Rute Trayek</div>
+                  <div class="text-[10px] text-slate-400">LineString (rute.geojson)</div>
+                </div>
+              </div>
+              <input type="checkbox" id="layerRouteToggle" checked onchange="handleLayerToggle('route', this.checked)" class="w-4 h-4 rounded text-indigo-600 bg-slate-800 border-slate-700 focus:ring-indigo-500 focus:ring-offset-slate-900 cursor-pointer" />
+            </label>
+
+            <!-- Toggle Marker Titik Ujung -->
+            <label class="flex items-center justify-between p-2 rounded-lg bg-slate-900 hover:bg-slate-800/80 cursor-pointer transition border border-slate-800/80">
+              <div class="flex items-center gap-2.5">
+                <div class="flex items-center -space-x-1">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white"></span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-rose-500 border border-white"></span>
+                </div>
+                <div>
+                  <div class="font-semibold text-slate-200">Titik Awal & Akhir</div>
+                  <div class="text-[10px] text-slate-400">Cilegon & Jakarta (titik_ujung)</div>
+                </div>
+              </div>
+              <input type="checkbox" id="layerEndpointsToggle" checked onchange="handleLayerToggle('endpoints', this.checked)" class="w-4 h-4 rounded text-indigo-600 bg-slate-800 border-slate-700 focus:ring-indigo-500 focus:ring-offset-slate-900 cursor-pointer" />
+            </label>
+
+            <!-- Toggle Sebaran Waypoints -->
+            <label class="flex items-center justify-between p-2 rounded-lg bg-slate-900 hover:bg-slate-800/80 cursor-pointer transition border border-slate-800/80">
+              <div class="flex items-center gap-2.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                <div>
+                  <div class="font-semibold text-slate-200">Sebaran 503 Waypoints</div>
+                  <div class="text-[10px] text-slate-400">GPS Telematika (data_gps.json)</div>
+                </div>
+              </div>
+              <input type="checkbox" id="layerWaypointsToggle" checked onchange="handleLayerToggle('waypoints', this.checked)" class="w-4 h-4 rounded text-indigo-600 bg-slate-800 border-slate-700 focus:ring-indigo-500 focus:ring-offset-slate-900 cursor-pointer" />
+            </label>
+          </div>
+        </div>
+
+        <!-- KARTU 2: RINGKASAN METRIK UTAMA PERJALANAN (GRID 2X2) -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 shadow-sm">
+          <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+            <span>📊</span> Metrik Utama Perjalanan
+          </h2>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-900/90 border border-slate-800 p-2.5 rounded-lg">
+              <span class="text-slate-400 text-[10px] block">Total Jarak Tempuh</span>
+              <span class="font-extrabold text-white text-sm" id="sidebar-jarak">126.71 km</span>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 p-2.5 rounded-lg">
+              <span class="text-slate-400 text-[10px] block">Durasi Perjalanan</span>
+              <span class="font-extrabold text-amber-400 text-sm">251 Menit</span>
+              <span class="text-[10px] text-slate-400 block mt-0.5">05:20 – 09:31 WIB</span>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 p-2.5 rounded-lg">
+              <span class="text-slate-400 text-[10px] block">Konsumsi Dexlite</span>
+              <span class="font-extrabold text-indigo-400 text-sm" id="sidebar-bbm">38.00 L</span>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 p-2.5 rounded-lg">
+              <span class="text-slate-400 text-[10px] block">Total Biaya BBM</span>
+              <span class="font-extrabold text-emerald-400 text-sm" id="sidebar-biaya">Rp 493.830</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KARTU 3: FILTER KECEPATAN & KONDISI JALAN -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 shadow-sm space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🚦</span> Filter Kecepatan
+            </h2>
+            <span id="pointCounter" class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/80">
+              503 / 503 Titik
+            </span>
+          </div>
+
+          <div>
+            <select id="statusFilter" class="w-full bg-slate-900 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
+              <option value="ALL">Semua Titik (503 Waypoints)</option>
+              <option value="Lancar">Jalan Lancar (&gt; 25 km/jam)</option>
+              <option value="Macet/Pelan">Padat Merayap (1 - 25 km/jam)</option>
+              <option value="Idle">Berhenti / Idle (0 km/jam)</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-3 gap-1 pt-1 text-[11px] text-center">
+            <div class="bg-slate-900/80 p-1.5 rounded border border-slate-800">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1"></span>
+              <span class="font-bold text-slate-200">365</span>
+              <span class="block text-[9px] text-slate-400">Lancar</span>
+            </div>
+            <div class="bg-slate-900/80 p-1.5 rounded border border-slate-800">
+              <span class="w-2 h-2 rounded-full bg-amber-500 inline-block mr-1"></span>
+              <span class="font-bold text-slate-200">66</span>
+              <span class="block text-[9px] text-slate-400">Padat</span>
+            </div>
+            <div class="bg-slate-900/80 p-1.5 rounded border border-slate-800">
+              <span class="w-2 h-2 rounded-full bg-rose-500 inline-block mr-1"></span>
+              <span class="font-bold text-slate-200">72</span>
+              <span class="block text-[9px] text-slate-400">Idle (0 km/j)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KARTU 4: RINCIAN AUDIT KONSUMSI BBM & FLEET RATIONALE -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 shadow-sm space-y-2 text-xs">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <h2 class="font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <span>⛽</span> Audit Konsumsi Dexlite
+            </h2>
+            <span class="text-[10px] text-indigo-400 font-semibold">AC Aktif</span>
+          </div>
+
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-slate-300">
+              <span class="text-slate-400">Jenis Bahan Bakar:</span>
+              <span class="font-semibold text-white">Pertamina Dexlite (CN 51)</span>
+            </div>
+            <div class="flex justify-between text-slate-300">
+              <span class="text-slate-400">Harga Acuan / Liter:</span>
+              <span class="font-semibold text-white">Rp 13.000 / L</span>
+            </div>
+            <div class="flex justify-between text-slate-300">
+              <span class="text-slate-400">Efisiensi Riil:</span>
+              <span class="font-bold text-emerald-400" id="side-efisiensi-riil">3.34 km/L</span>
+            </div>
+            <div class="flex justify-between text-slate-300">
+              <span class="text-slate-400">Efisiensi Acuan Bebas Hambatan:</span>
+              <span class="font-medium text-slate-300" id="side-efisiensi-acuan">3.80 km/L</span>
+            </div>
+            <div class="border-t border-slate-800/80 my-1.5"></div>
+            <div class="flex justify-between text-amber-400">
+              <span>Konsumsi Saat Idle (Macet):</span>
+              <span class="font-bold" id="side-idle">1.20 L (36 Menit)</span>
+            </div>
+            <div class="flex justify-between text-rose-400">
+              <span>Pemborosan vs Ideal:</span>
+              <span class="font-bold" id="side-boros">4.60 L</span>
+            </div>
+            <div class="flex justify-between text-rose-400">
+              <span>Kerugian Biaya Macet:</span>
+              <span class="font-bold" id="side-biaya-boros">Rp 60.360</span>
+            </div>
+          </div>
+
+          <button onclick="toggleReceipt()" class="w-full mt-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-700/50 font-bold text-xs py-2 rounded-lg transition flex items-center justify-center gap-1.5">
+            <span>📄</span> Lihat Rekapitulasi Struk Bon Lengkap
+          </button>
+        </div>
+
+        <!-- KARTU 5: KLAUSUL KETERBATASAN DATA (DISCLAIMER AKADEMIK) -->
+        <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 text-[11px] text-slate-400 leading-relaxed">
+          <div class="font-bold text-slate-300 flex items-center gap-1 mb-1">
+            <span>⚠️</span> Klausul Keterbatasan Data:
+          </div>
+          <p>
+            Data telematika merupakan data simulasi terkalibrasi untuk keperluan tugas WebGIS. Belum memperhitungkan variasi elevasi 3D (kontur tanjakan/turunan) jalan tol dan fluktuasi bobot penumpang secara dinamis.
+          </p>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ===================================================================== -->
+    <!-- BASEMAP CONTAINER (KANAN) - FLEX-1 MENGISI PENUH SISA LAYAR -->
+    <!-- ===================================================================== -->
+    <main class="flex-1 h-full relative z-0">
+      <div id="map" class="w-full h-full"></div>
+
+      <!-- LEGENDA PETA FLOATING (POJOK KANAN BAWAH) -->
+      <div class="absolute bottom-6 right-6 z-[1000] bg-slate-950/90 backdrop-blur text-slate-200 p-3.5 rounded-xl shadow-2xl border border-slate-800 text-xs space-y-1.5 max-w-xs pointer-events-auto">
+        <div class="font-bold text-slate-100 border-b border-slate-800 pb-1 flex items-center justify-between">
+          <span>Legenda Simbol</span>
+          <span class="text-[10px] text-slate-400">WebGIS</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-4 h-1 bg-indigo-500 rounded"></span>
+          <span>Garis Trayek Tol</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white"></span>
+          <span>Titik Awal (Cilegon)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-rose-500 border border-white"></span>
+          <span>Titik Akhir (Jakarta)</span>
+        </div>
+        <div class="border-t border-slate-800/80 my-1"></div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Lancar (&gt;25 km/j)</span>
+          </div>
+          <span class="text-[10px] text-slate-400">365 ttk</span>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span>Padat (1-25 km/j)</span>
+          </div>
+          <span class="text-[10px] text-slate-400">66 ttk</span>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+            <span>Idle (0 km/j)</span>
+          </div>
+          <span class="text-[10px] text-slate-400">72 ttk</span>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- 3. MODAL STRUK / BON KONSUMSI BBM (FITUR BONUS) -->
+  <!-- ======================================================================= -->
+  <div id="receiptModal" class="hidden fixed inset-0 z-[2000] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div id="receiptCard" class="relative w-full max-w-sm bg-white text-slate-900 p-6 rounded-2xl shadow-2xl border border-slate-300 receipt-font transform transition-all">
+      <!-- Tombol Tutup Top -->
+      <button onclick="toggleReceipt()" class="absolute top-3 right-3 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm flex items-center justify-center transition">
+        ✕
+      </button>
+
+      <!-- Struk Header -->
+      <div class="text-center border-b-2 border-dashed border-slate-400 pb-3 mb-3">
+        <div class="text-2xl mb-0.5">🚌</div>
+        <h2 class="font-black text-base tracking-wider text-slate-900">STRUK KONSUMSI BBM</h2>
+        <p class="text-[11px] text-slate-500 font-bold" id="res-trayek">K-09 | Big Bus Pariwisata</p>
+        <p class="text-[10px] text-slate-400">Trayek: Cilegon – Jakarta (05:20 – 09:31 WIB)</p>
+        <p class="text-[10px] text-slate-400">Durasi: 251 Menit | 503 Waypoints</p>
+      </div>
+
+      <!-- Detail Rincian Biaya & Parameter -->
+      <div class="text-xs space-y-1.5">
+        <div class="flex justify-between">
+          <span class="text-slate-600">Jenis Armada:</span>
+          <span class="font-bold">Big Bus (AC Aktif)</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-600">Jenis Bahan Bakar:</span>
+          <span class="font-bold text-indigo-700" id="res-bbm">Dexlite</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-600">Harga / Liter:</span>
+          <span class="font-bold" id="res-harga">Rp 13.000</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-600">Total Jarak Tempuh:</span>
+          <span class="font-bold" id="res-jarak">126.71 km</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-600">Efisiensi Riil:</span>
+          <span class="font-bold text-emerald-700" id="res-efisiensi">3.34 km/L</span>
+        </div>
+        <div class="flex justify-between text-slate-500">
+          <span>Efisiensi Acuan Ideal:</span>
+          <span id="res-acuan">3.80 km/L</span>
+        </div>
+
+        <div class="border-t border-dashed border-slate-300 my-2"></div>
+
+        <div class="flex justify-between text-amber-800">
+          <span>Konsumsi Idle (Macet):</span>
+          <span class="font-bold" id="res-idle">1.20 L (36 Menit)</span>
+        </div>
+        <div class="flex justify-between text-rose-600">
+          <span>Pemborosan vs Ideal:</span>
+          <span class="font-bold" id="res-boros">4.60 L</span>
+        </div>
+        <div class="flex justify-between text-rose-600">
+          <span>Kerugian Biaya Macet:</span>
+          <span class="font-bold" id="res-biaya-boros">Rp 60.360</span>
+        </div>
+
+        <div class="border-t-2 border-dashed border-slate-400 my-2.5"></div>
+
+        <!-- Total Liter & Total Biaya -->
+        <div class="flex justify-between text-base font-black text-slate-900">
+          <span>TOTAL BBM:</span>
+          <span class="text-indigo-700" id="res-total-liter">38.00 Liter</span>
+        </div>
+        <div class="flex justify-between text-base font-black text-slate-900">
+          <span>TOTAL BIAYA:</span>
+          <span class="text-emerald-700" id="res-total-biaya">Rp 493.830</span>
+        </div>
+      </div>
+
+      <!-- Barcode Visual & Catatan -->
+      <div class="mt-4 pt-3 border-t border-dashed border-slate-300 text-center">
+        <div class="tracking-[6px] text-slate-400 font-mono text-[10px] uppercase mb-1">||| | | |||| || ||| | ||| ||||</div>
+        <p class="text-[9px] text-slate-400 leading-tight italic">
+          * Data simulasi telematika terkalibrasi. Tidak memperhitungkan variasi elevasi topografi jalan tol dan bobot muatan dinamis.
+        </p>
+      </div>
+
+      <!-- Tombol Aksi Modal -->
+      <div class="mt-4 grid grid-cols-2 gap-2 font-sans">
+        <button onclick="window.print()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2 px-3 rounded-lg border border-slate-300 transition flex items-center justify-center gap-1">
+          <span>🖨️</span> Cetak Struk
+        </button>
+        <button onclick="toggleReceipt()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2 px-3 rounded-lg shadow transition">
+          Tutup Struk
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- 4. LOGIKA JAVASCRIPT & INTEGRASI DATA WEBGis -->
+  <!-- ======================================================================= -->
+  <script>
+    // =========================================================================
+    // INSIALISASI MAP & BASEMAP OPENSTREETMAP
+    // =========================================================================
+    const map = L.map('map', {
+      zoomControl: true,
+      minZoom: 8,
+      maxZoom: 18
+    }).setView([-6.10, 106.45], 10);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors | WebGIS Bus Pariwisata K-09'
+    }).addTo(map);
+
+    // Layer Groups untuk Kontrol Layer Interaktif
+    let routeLayer = null;
+    const endpointLayer = L.layerGroup().addTo(map);
+    const waypointLayer = L.layerGroup().addTo(map);
+    let allPoints = [];
+
+    // Helper pewarnaan status lalu lintas
+    function getColor(status) {
+      if (status === 'Idle') return '#f43f5e';         // Merah Rose
+      if (status === 'Macet/Pelan') return '#f59e0b'; // Oranye Amber
+      return '#10b981';                               // Hijau Emerald
+    }
+
+    // Fungsi pusatkan rute ke batas perjalanan
+    function fitRouteBounds() {
+      if (routeLayer && map.hasLayer(routeLayer)) {
+        map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+      } else {
+        map.setView([-6.10, 106.45], 10);
+      }
+    }
+
+    // =========================================================================
+    // FITUR KONTROL LAYER VISUAL (INTERAKTIF AKTIFKAN / NONAKTIFKAN)
+    // =========================================================================
+    function handleLayerToggle(layerName, isVisible) {
+      if (layerName === 'route') {
+        if (!routeLayer) return;
+        if (isVisible) {
+          if (!map.hasLayer(routeLayer)) map.addLayer(routeLayer);
+        } else {
+          if (map.hasLayer(routeLayer)) map.removeLayer(routeLayer);
+        }
+      } else if (layerName === 'endpoints') {
+        if (isVisible) {
+          if (!map.hasLayer(endpointLayer)) map.addLayer(endpointLayer);
+        } else {
+          if (map.hasLayer(endpointLayer)) map.removeLayer(endpointLayer);
+        }
+      } else if (layerName === 'waypoints') {
+        if (isVisible) {
+          if (!map.hasLayer(waypointLayer)) map.addLayer(waypointLayer);
+        } else {
+          if (map.hasLayer(waypointLayer)) map.removeLayer(waypointLayer);
+        }
+      }
+    }
+
+    // =========================================================================
+    // 1. MEMUAT rute.geojson (Visualisasi Garis LineString Trayek)
+    // =========================================================================
+    fetch('rute.geojson')
+      .then(res => {
+        if (!res.ok) throw new Error('Gagal memuat rute.geojson: ' + res.status);
+        return res.json();
+      })
+      .then(geojsonData => {
+        routeLayer = L.geoJSON(geojsonData, {
+          style: {
+            color: '#6366f1',
+            weight: 5,
+            opacity: 0.85,
+            lineJoin: 'round',
+            lineCap: 'round'
+          },
+          onEachFeature: (feature, layer) => {
+            const p = feature.properties;
+            layer.bindPopup(`
+              <div class="text-xs font-sans text-slate-900 min-w-[240px]">
+                <div class="bg-indigo-900 text-white -mx-3 -mt-2 p-2.5 rounded-t-lg mb-2">
+                  <div class="font-bold text-sm leading-tight">${p.nama}: ${p.trayek}</div>
+                  <div class="text-[11px] text-indigo-200">${p.kendaraan} [${p.kode_kendaraan}] - ${p.arah}</div>
+                </div>
+                <div class="space-y-1">
+                  <div class="flex justify-between"><span class="text-slate-500">Tanggal:</span><span class="font-semibold">${p.tanggal} (${p.hari})</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Waktu Tempuh:</span><span class="font-semibold">${p.jam_mulai} – ${p.jam_selesai} WIB (${p.durasi_menit} Menit)</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Kecepatan:</span><span class="font-semibold">Rata-rata ${p.kecepatan_rata} km/j (Maks ${p.kecepatan_maks} km/j)</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Total Jarak:</span><span class="font-bold text-indigo-700">${p.jarak_km} km</span></div>
+                  <div class="border-t border-slate-200 my-1"></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Konsumsi Dexlite:</span><span class="font-bold text-indigo-700">${p.liter_total} Liter (Rp ${p.biaya_rp.toLocaleString('id-ID')})</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Waktu Idle Macet:</span><span class="font-semibold text-rose-600">${p.menit_idle} Menit (${p.liter_idle} Liter)</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Efisiensi Riil:</span><span class="font-bold text-emerald-700">${p.km_per_liter} km/Liter</span></div>
+                </div>
+              </div>
+            `);
+          }
+        }).addTo(map);
+
+        // Inisialisasi status toggle
+        const toggleEl = document.getElementById('layerRouteToggle');
+        if (toggleEl && !toggleEl.checked) {
+          map.removeLayer(routeLayer);
+        }
+
+        // Zoom otomatis membingkai rute
+        fitRouteBounds();
+      })
+      .catch(err => console.error('Error saat memuat rute.geojson:', err));
+
+    // =========================================================================
+    // 2. MEMUAT titik_ujung.geojson (Marker Titik Awal Cilegon & Titik Akhir Jakarta)
+    // =========================================================================
+    fetch('titik_ujung.geojson')
+      .then(res => {
+        if (!res.ok) throw new Error('Gagal memuat titik_ujung.geojson: ' + res.status);
+        return res.json();
+      })
+      .then(geojsonData => {
+        L.geoJSON(geojsonData, {
+          pointToLayer: (feature, latlng) => {
+            const isStart = feature.properties.jenis === 'Titik Awal';
+            return L.circleMarker(latlng, {
+              radius: 9,
+              fillColor: isStart ? '#10b981' : '#f43f5e',
+              color: '#ffffff',
+              weight: 2.5,
+              opacity: 1,
+              fillOpacity: 1
+            });
+          },
+          onEachFeature: (feature, layer) => {
+            const p = feature.properties;
+            const isStart = p.jenis === 'Titik Awal';
+            layer.bindPopup(`
+              <div class="text-xs font-sans text-slate-900 min-w-[210px]">
+                <div class="${isStart ? 'bg-emerald-700' : 'bg-rose-700'} text-white -mx-3 -mt-2 p-2 rounded-t-lg mb-2 flex items-center justify-between">
+                  <span class="font-bold text-sm">${isStart ? '🚩 TITIK AWAL' : '🏁 TITIK AKHIR'}</span>
+                  <span class="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono">${p.hari}</span>
+                </div>
+                <div class="space-y-1">
+                  <div class="flex justify-between"><span class="text-slate-500">Lokasi:</span><span class="font-bold">${isStart ? 'Cilegon, Banten' : 'Tanjung Priok, Jakarta'}</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Waktu:</span><span class="font-semibold">${p.waktu} WIB</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Total Jarak:</span><span class="font-bold">${p.jarak_km} km</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">BBM Dexlite:</span><span class="font-bold text-indigo-700">${p.liter_total} L (Rp ${p.biaya_rp.toLocaleString('id-ID')})</span></div>
+                </div>
+              </div>
+            `);
+          }
+        }).addTo(endpointLayer);
+
+        const toggleEl = document.getElementById('layerEndpointsToggle');
+        if (toggleEl && !toggleEl.checked) {
+          map.removeLayer(endpointLayer);
+        }
+      })
+      .catch(err => console.error('Error saat memuat titik_ujung.geojson:', err));
+
+    // =========================================================================
+    // 3. MEMUAT data_gps.json & MERENDER WAYPOINTS INTERAKTIF
+    // =========================================================================
+    fetch('data_gps.json')
+      .then(res => {
+        if (!res.ok) throw new Error('Gagal memuat data_gps.json: ' + res.status);
+        return res.json();
+      })
+      .then(data => {
+        allPoints = data;
+        renderWaypoints(allPoints);
+        updatePointCounter(allPoints.length, allPoints.length);
+
+        const toggleEl = document.getElementById('layerWaypointsToggle');
+        if (toggleEl && !toggleEl.checked) {
+          map.removeLayer(waypointLayer);
+        }
+      })
+      .catch(err => console.error('Error saat memuat data_gps.json:', err));
+
+    // Render Waypoints dengan POPUP LENGKAP 4 Atribut Wajib
+    function renderWaypoints(points) {
+      waypointLayer.clearLayers();
+      points.forEach((p, idx) => {
+        const isIdle = p.status === 'Idle';
+        const marker = L.circleMarker([p.latitude, p.longitude], {
+          radius: isIdle ? 5 : 3.5,
+          fillColor: getColor(p.status),
+          color: '#ffffff',
+          weight: isIdle ? 1.5 : 0.8,
+          fillOpacity: 0.95
+        });
+
+        // POPUP MEMUAT: Waktu, Kecepatan, Jarak Tempuh Kumulatif, dan Estimasi Konsumsi BBM Kumulatif
+        marker.bindPopup(`
+          <div class="text-xs font-sans text-slate-900 min-w-[220px]">
+            <!-- Header Popup Titik -->
+            <div class="flex items-center justify-between border-b border-slate-200 pb-1.5 mb-1.5">
+              <span class="font-bold text-slate-800">Titik #${idx + 1}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-sm" style="background-color: ${getColor(p.status)}">
+                ${p.status === 'Idle' ? 'Berhenti / Idle' : (p.status === 'Macet/Pelan' ? 'Padat Merayap' : 'Lancar')}
+              </span>
+            </div>
+
+            <!-- Tabel 4 Parameter Wajib -->
+            <table class="w-full text-left text-xs">
+              <tbody>
+                <tr>
+                  <td class="text-slate-500 py-0.5">Waktu</td>
+                  <td class="font-bold text-right text-slate-800">${p.waktu_str} WIB</td>
+                </tr>
+                <tr>
+                  <td class="text-slate-500 py-0.5">Kecepatan</td>
+                  <td class="font-extrabold text-right ${p.kecepatan_kmh === 0 ? 'text-rose-600' : 'text-slate-900'}">${p.kecepatan_kmh} km/jam</td>
+                </tr>
+                <tr>
+                  <td class="text-slate-500 py-0.5">Jarak Kumulatif</td>
+                  <td class="font-bold text-right text-slate-800">${p.jarak_kumulatif_km} km</td>
+                </tr>
+                <tr class="border-t border-slate-200">
+                  <td class="text-indigo-600 font-semibold pt-1">BBM Kumulatif</td>
+                  <td class="font-black text-indigo-700 text-right pt-1">${p.fuel_kumulatif_liter} Liter</td>
+                </tr>
+                <tr>
+                  <td class="text-slate-400 text-[11px] py-0.5">BBM Segmen Ini</td>
+                  <td class="text-slate-600 font-mono text-right text-[11px]">${p.fuel_liter.toFixed(4)} L</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `);
+
+        marker.addTo(waypointLayer);
+      });
+    }
+
+    function updatePointCounter(shown, total) {
+      const el = document.getElementById('pointCounter');
+      if (el) {
+        el.innerText = `${shown} / ${total} Titik`;
+      }
+    }
+
+    // =========================================================================
+    // 4. MEMUAT ringkasan.json KE SIDEBAR & STRUK BON BBM
+    // =========================================================================
+    fetch('ringkasan.json')
+      .then(res => {
+        if (!res.ok) throw new Error('Gagal memuat ringkasan.json: ' + res.status);
+        return res.json();
+      })
+      .then(info => {
+        const setTxt = (id, txt) => {
+          const el = document.getElementById(id);
+          if (el) el.innerText = txt;
+        };
+        // Update Sidebar Values
+        setTxt('sidebar-jarak', `${info["total_km"] || 126.71} km`);
+        setTxt('sidebar-bbm', `${info["total_liter"] || 38.0} L`);
+        setTxt('sidebar-biaya', `Rp ${(info["total_biaya"] || 493830).toLocaleString('id-ID')}`);
+        setTxt('side-efisiensi-riil', `${info["siang_km_per_liter"] || 3.34} km/L`);
+        setTxt('side-efisiensi-acuan', `${info["efisiensi_acuan"] || 3.8} km/L`);
+        setTxt('side-idle', `${info["liter_idle"] || 1.2} L (36 Menit)`);
+        setTxt('side-boros', `${info["liter_boros"] || 4.6} L`);
+        setTxt('side-biaya-boros', `Rp ${(info["biaya_boros"] || 60360).toLocaleString('id-ID')}`);
+
+        // Update Modal Struk Values
+        setTxt('res-trayek', `${info["kode_kendaraan"]} | ${info["kendaraan"]}`);
+        setTxt('res-bbm', info["jenis_bbm"] || 'Dexlite');
+        setTxt('res-harga', `Rp ${(info["harga_per_liter"] || 13000).toLocaleString('id-ID')}`);
+        setTxt('res-jarak', `${info["total_km"] || 126.71} km`);
+        setTxt('res-efisiensi', `${info["siang_km_per_liter"] || 3.34} km/L`);
+        setTxt('res-acuan', `${info["efisiensi_acuan"] || 3.8} km/L`);
+        setTxt('res-idle', `${info["liter_idle"] || 1.2} L (36 Menit)`);
+        setTxt('res-boros', `${info["liter_boros"] || 4.6} L`);
+        setTxt('res-biaya-boros', `Rp ${(info["biaya_boros"] || 60360).toLocaleString('id-ID')}`);
+        setTxt('res-total-liter', `${info["total_liter"] || 38.0} Liter`);
+        setTxt('res-total-biaya', `Rp ${(info["total_biaya"] || 493830).toLocaleString('id-ID')}`);
+      })
+      .catch(err => console.error('Error saat memuat ringkasan.json:', err));
+
+    // =========================================================================
+    // 5. EVENT FILTER DROPDOWN
+    // =========================================================================
+    document.getElementById('statusFilter').addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val === 'ALL') {
+        renderWaypoints(allPoints);
+        updatePointCounter(allPoints.length, allPoints.length);
+      } else {
+        const filtered = allPoints.filter(p => p.status === val);
+        renderWaypoints(filtered);
+        updatePointCounter(filtered.length, allPoints.length);
+      }
+    });
+
+    // =========================================================================
+    // 6. TOGGLE MODAL STRUK BON BBM
+    // =========================================================================
+    function toggleReceipt() {
+      const modal = document.getElementById('receiptModal');
+      modal.classList.toggle('hidden');
+    }
+
+    // Tutup struk saat klik area backdrop gelap luar modal
+    document.getElementById('receiptModal').addEventListener('click', (e) => {
+      if (e.target.id === 'receiptModal') {
+        toggleReceipt();
+      }
+    });
+
+    // Pintasan keyboard ESC untuk menutup modal
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('receiptModal');
+        if (!modal.classList.contains('hidden')) {
+          modal.classList.add('hidden');
+        }
+      }
+    });
+
+    // Panggil invalidateSize setelah layout dirender agar basemap merespons split-screen
+    window.addEventListener('resize', () => {
+      map.invalidateSize();
+    });
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+  </script>
+</body>
+</html>
